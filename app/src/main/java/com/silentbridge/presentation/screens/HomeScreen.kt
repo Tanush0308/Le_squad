@@ -79,6 +79,7 @@ fun HomeScreen(
             }
         )
     }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     Scaffold(
         topBar = {
@@ -95,6 +96,13 @@ fun HomeScreen(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false }
                     ) {
+                        DropdownMenuItem(
+                            text = { Text("Diagnostics") },
+                            onClick = {
+                                showMenu = false
+                                onNavigateToDiagnostics()
+                            }
+                        )
                         DropdownMenuItem(
                             text = { Text("Prediction Stats") },
                             onClick = {
@@ -217,7 +225,23 @@ fun HomeScreen(
             Spacer(modifier = Modifier.weight(1f))
 
             // Sentence Section
-            if (uiState.formedSentence != null) {
+            if (uiState.isFormingSentence) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(16.dp)) {
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("AI is forming sentence...", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
+                }
+            } else if (uiState.sentenceError != null) {
+                Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Error", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                        Text(text = uiState.sentenceError!!, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onErrorContainer)
+                        OutlinedButton(onClick = { viewModel.clearSentence(); viewModel.clearBuffer() }, modifier = Modifier.padding(top = 8.dp)) {
+                            Text("Clear")
+                        }
+                    }
+                }
+            } else if (uiState.formedSentence != null) {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp)) {
                         Text("English:", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
@@ -230,7 +254,7 @@ fun HomeScreen(
                         }
 
                         Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = { viewModel.speakSentence(uiState.formedSentence!!) }, modifier = Modifier.weight(1f)) {
+                            Button(onClick = { viewModel.speakSentence(context) }, modifier = Modifier.weight(1f)) {
                                 Text("Speak")
                             }
                             OutlinedButton(onClick = { viewModel.clearSentence(); viewModel.clearBuffer() }) {
@@ -243,11 +267,13 @@ fun HomeScreen(
 
             // Controls
             Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = { viewModel.startGestureSession() },
-                    enabled = uiState.connectionState == ConnectionState.CONNECTED && uiState.inferenceState == InferenceState.READY,
-                    modifier = Modifier.weight(1f)
-                ) { Text("START") }
+                if (uiState.inferenceState == InferenceState.READY) {
+                    Button(
+                        onClick = { viewModel.startGestureSession() },
+                        enabled = uiState.connectionState == ConnectionState.CONNECTED,
+                        modifier = Modifier.weight(1f)
+                    ) { Text("START") }
+                }
                 
                 if (viewModel.getTriggerModePublic() == "manual" && uiState.wordBuffer.isNotEmpty()) {
                     Button(onClick = { viewModel.triggerSentenceFormation() }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)) {

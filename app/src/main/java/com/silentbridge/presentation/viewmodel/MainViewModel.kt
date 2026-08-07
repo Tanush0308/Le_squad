@@ -125,16 +125,31 @@ class MainViewModel(
     }
 
     private fun updateTTSLanguage(langCode: String) {
-        val locale = when (langCode) {
+        val locale = getLocale(langCode)
+        tts?.language = locale
+        
+        // Try to find a better voice if available
+        try {
+            val voice = tts?.voices?.firstOrNull { it.locale.language == locale.language }
+            if (voice != null) {
+                tts?.voice = voice
+            }
+        } catch (e: Exception) {
+            Log.e("SilentBridge", "Error setting voice: ${e.message}")
+        }
+    }
+
+    private fun getLocale(langCode: String): Locale {
+        return when (langCode) {
             "hi" -> Locale("hi", "IN")
             "mr" -> Locale("mr", "IN")
             "gu" -> Locale("gu", "IN")
             "ta" -> Locale("ta", "IN")
             "te" -> Locale("te", "IN")
             "kn" -> Locale("kn", "IN")
+            "ml" -> Locale("ml", "IN")
             else -> Locale.ENGLISH
         }
-        tts?.language = locale
     }
 
     fun setTargetLanguage(langCode: String) {
@@ -390,6 +405,7 @@ class MainViewModel(
     fun clearBuffer() {
         _wordBuffer.value = emptyList()
         cancelPauseTimer()
+        gestureEngine.stopSession()
     }
 
     private fun getTriggerMode(): String =
@@ -420,6 +436,10 @@ class MainViewModel(
         val words = _wordBuffer.value
         if (words.isEmpty()) return
         cancelPauseTimer()
+        
+        _wordBuffer.value = emptyList()
+        gestureEngine.stopSession()
+        
         _uiState.update { it.copy(isFormingSentence = true, formedSentence = null, translatedSentence = null, sentenceError = null) }
         viewModelScope.launch {
             try {
@@ -526,8 +546,35 @@ class MainViewModel(
         _uiState.update { it.copy(formedSentence = null, translatedSentence = null, sentenceError = null, alternativesFor = null) }
     }
 
-    fun speakSentence(sentence: String) {
-        tts?.speak(sentence, TextToSpeech.QUEUE_FLUSH, null, "sentence_${System.currentTimeMillis()}")
+    fun speakSentence(context: Context) {
+        val state = _uiState.value
+        val sentence = state.translatedSentence ?: state.formedSentence ?: return
+        
+        val locale = getLocale(state.targetLanguageCode)
+        val result = tts?.setLanguage(locale)
+        
+        if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+            try {
+                val intent = android.content.Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
+                intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+                android.widget.Toast.makeText(context, "Language data missing. Please install it.", android.widget.Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                Log.e("SilentBridge", "Could not launch TTS install intent")
+            }
+        } else {
+            // Try to set specific voice for better quality
+            try {
+                val voice = tts?.voices?.firstOrNull { it.locale.language == locale.language }
+                if (voice != null) {
+                    tts?.voice = voice
+                }
+            } catch (e: Exception) {
+                // Ignore voice selection errors
+            }
+            
+            tts?.speak(sentence, TextToSpeech.QUEUE_FLUSH, null, "sentence_${System.currentTimeMillis()}")
+        }
     }
 
     fun onFeedbackYes() {
@@ -603,10 +650,24 @@ class MainViewModel(
     private fun observeInferenceState() {
         viewModelScope.launch {
             gestureEngine.state.collect { state ->
+                val isAuto = getTriggerMode() == "auto"
                 _uiState.update { it.copy(
                     inferenceState = state,
-                    showFeedbackButtons = state == InferenceState.RESULT_FROZEN
+                    showFeedbackButtons = state == InferenceState.RESULT_FROZEN && !isAuto
                 ) }
+                
+                if (state == InferenceState.RESULT_FROZEN && isAuto) {
+                    delay(50) // Ensure gestureResult is populated in uiState
+                    onFeedbackYes()
+                }
+                if (state == InferenceState.READY && isAuto && _wordBuffer.value.isNotEmpty()) {
+                    viewModelScope.launch {
+                        delay(750) // 750ms delay to let user return hands to rest
+                        if (_uiState.value.inferenceState == InferenceState.READY) {
+                            startGestureSession()
+                        }
+                    }
+                }
             }
         }
     }

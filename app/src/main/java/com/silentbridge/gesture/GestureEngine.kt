@@ -33,7 +33,7 @@ class GestureEngine(
 
     companion object {
         private const val TAG = "GestureEngine"
-        private const val GYRO_MARGIN = 15.0
+        private const val GYRO_MARGIN = 35.0
     }
 
     fun onBluetoothConnected() {

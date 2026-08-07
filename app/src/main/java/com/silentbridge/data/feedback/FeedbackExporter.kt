@@ -10,7 +10,7 @@ class FeedbackExporter(private val context: Context, private val logger: Feedbac
 
     companion object {
         private const val TAG = "FeedbackExporter"
-        private const val AUTHORITY = "com.example.gloves.fileprovider"
+        private const val AUTHORITY = "com.example.gloves2.fileprovider"
     }
 
     fun exportDataset() {

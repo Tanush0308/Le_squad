@@ -87,7 +87,7 @@ fun SilentBridgeApp(viewModel: MainViewModel) {
         context.getSharedPreferences("silentbridge_feedback", android.content.Context.MODE_PRIVATE)
     }
     val savedMode = remember { prefs.getString("trigger_mode", null) }
-    var showModeDialog by remember { mutableStateOf(savedMode == null) }
+    var showModeDialog by remember { mutableStateOf(true) }
     var selectedMode by remember { mutableStateOf(savedMode) }
 
     if (showModeDialog) {

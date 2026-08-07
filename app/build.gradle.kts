@@ -9,7 +9,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.gloves"
+        applicationId = "com.example.gloves2"
         minSdk = 31
         targetSdk = 35
         versionCode = 1
