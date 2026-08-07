@@ -31,6 +31,14 @@ class GestureEngine(
     private val CALIBRATION_FRAMES = 150 // 3 seconds at 50Hz
     private var inferenceLocked = false
 
+    private var biasGx = 0.0
+    private var biasGy = 0.0
+    private var biasGz = 0.0
+    private var calibrationSumGx = 0.0
+    private var calibrationSumGy = 0.0
+    private var calibrationSumGz = 0.0
+    private val calibrationFramesList = mutableListOf<SensorFrame>()
+
     companion object {
         private const val TAG = "GestureEngine"
         private const val GYRO_MARGIN = 15.0
@@ -51,6 +59,10 @@ class GestureEngine(
     private fun startCalibration() {
         _state.value = InferenceState.CALIBRATING
         calibrationData.clear()
+        calibrationSumGx = 0.0
+        calibrationSumGy = 0.0
+        calibrationSumGz = 0.0
+        calibrationFramesList.clear()
         Log.d(TAG, "Calibration started")
     }
 
@@ -86,20 +98,44 @@ class GestureEngine(
     }
 
     fun onNewFrame(frame: SensorFrame) {
-        val magnitude = motionDetector.calculateMagnitude(frame)
-
         when (_state.value) {
             InferenceState.CALIBRATING -> {
-                calibrationData.add(magnitude)
-                if (calibrationData.size >= CALIBRATION_FRAMES) {
-                    val maxNoise = calibrationData.maxOrNull() ?: 0.0
+                calibrationSumGx += frame.gx
+                calibrationSumGy += frame.gy
+                calibrationSumGz += frame.gz
+                calibrationFramesList.add(frame)
+                
+                if (calibrationFramesList.size >= CALIBRATION_FRAMES) {
+                    biasGx = calibrationSumGx / CALIBRATION_FRAMES
+                    biasGy = calibrationSumGy / CALIBRATION_FRAMES
+                    biasGz = calibrationSumGz / CALIBRATION_FRAMES
+                    
+                    var maxNoise = 0.0
+                    for (f in calibrationFramesList) {
+                        val cx = f.gx - biasGx
+                        val cy = f.gy - biasGy
+                        val cz = f.gz - biasGz
+                        val mag = kotlin.math.sqrt(cx * cx + cy * cy + cz * cz)
+                        if (mag > maxNoise) {
+                            maxNoise = mag
+                        }
+                    }
+                    
                     gyroThreshold = maxNoise + GYRO_MARGIN
-                    Log.d(TAG, "Calibration finished. Threshold: $gyroThreshold")
+                    Log.d(TAG, "Calibration finished. Bias: Gx=$biasGx, Gy=$biasGy, Gz=$biasGz. Threshold: $gyroThreshold")
+                    calibrationFramesList.clear()
                     _state.value = InferenceState.READY
                 }
             }
             InferenceState.RECORDING -> {
-                recorder.addFrame(frame)
+                val calibratedFrame = frame.copy(
+                    gx = (frame.gx - biasGx).toFloat(),
+                    gy = (frame.gy - biasGy).toFloat(),
+                    gz = (frame.gz - biasGz).toFloat()
+                )
+                recorder.addFrame(calibratedFrame)
+                
+                val magnitude = motionDetector.calculateMagnitude(calibratedFrame)
                 val isQuiet = !motionDetector.isMoving(magnitude, gyroThreshold)
                 if (recorder.updateIdleState(isQuiet)) {
                     Log.d(TAG, "Gesture ended.")
@@ -142,6 +178,7 @@ class GestureEngine(
             
             _state.value = InferenceState.DISPLAY_RESULT
             
+            Log.i(TAG, "Raw model output logits: ${outputProbabilities.contentToString()}")
             val topResults = outputProbabilities.mapIndexed { index, prob ->
                 labelMapper.getLabel(index) to prob
             }.sortedByDescending { it.second }

@@ -58,7 +58,7 @@ class FeedbackLogger(private val context: Context) {
     }
 
     fun getLogFile(): File {
-        val dir = context.getExternalFilesDir(null)
+        val dir = context.getExternalFilesDir(null) ?: context.filesDir
         return File(dir, FILENAME)
     }
 

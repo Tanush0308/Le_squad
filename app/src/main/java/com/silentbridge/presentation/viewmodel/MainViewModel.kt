@@ -28,6 +28,7 @@ import com.silentbridge.domain.usecase.ObserveConnectionStateUseCase
 import com.silentbridge.domain.usecase.ObserveSensorDataUseCase
 import com.silentbridge.gesture.GestureEngine
 import com.silentbridge.gesture.InferenceState
+import com.silentbridge.domain.usecase.LanguageEngineUseCase
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -75,15 +76,15 @@ class MainViewModel(
     private val gestureEngine: GestureEngine,
     private val feedbackRepository: FeedbackRepository,
     private val feedbackLogger: FeedbackLogger,
-    private val feedbackExporter: FeedbackExporter
+    private val feedbackExporter: FeedbackExporter,
+    private val languageEngineUseCase: LanguageEngineUseCase
 ) : ViewModel() {
 
     private val prefs = application.getSharedPreferences("silentbridge_feedback", Context.MODE_PRIVATE)
     private var tts: TextToSpeech? = null
     private var translator: Translator? = null
 
-    private val GEMINI_API_KEY = "YOUR_GEMINI_API_KEY_HERE"
-    private val GROQ_API_KEY = "YOUR_GROQ_API_KEY_HERE"
+    // No cloud API keys — inference is fully offline via LanguageEngine
     private val KEY_CUSTOM_WORDS = "custom_words"
     private val KEY_TARGET_LANG = "target_lang"
 
@@ -197,101 +198,7 @@ class MainViewModel(
             }
     }
 
-    private suspend fun makeGroqRequest(prompt: String): String? = withContext(Dispatchers.IO) {
-        try {
-            val url = java.net.URL("https://api.groq.com/openai/v1/chat/completions")
-            val connection = url.openConnection() as java.net.HttpURLConnection
-            connection.requestMethod = "POST"
-            connection.setRequestProperty("Content-Type", "application/json")
-            connection.setRequestProperty("Authorization", "Bearer $GROQ_API_KEY")
-            connection.doOutput = true
-            connection.connectTimeout = 8000
-            connection.readTimeout = 15000
 
-            val jsonBody = JSONObject()
-            jsonBody.put("model", "llama-3.3-70b-versatile")
-            jsonBody.put("temperature", 0.0)
-            jsonBody.put("max_tokens", 60)
-            
-            val messages = JSONArray()
-            val systemMsg = "You are a robotic verbatim sign language to English token-rearranger. Task: Output ONLY a simple sentence formed by rearranging the input tokens. Rules: 1. Use EVERY input token provided. 2. You may ONLY add basic connecting words if necessary: [is, am, are, and, or, but, also, the, a, to, for]. 3. PROHIBITED: Do not add ANY other words, context, or adjectives (e.g., NEVER add 'to sustain myself'). 4. Response must contain ONLY the sentence text."
-            messages.put(JSONObject().put("role", "system").put("content", systemMsg))
-            messages.put(JSONObject().put("role", "user").put("content", prompt))
-            jsonBody.put("messages", messages)
-
-            connection.outputStream.use { it.write(jsonBody.toString().toByteArray(Charsets.UTF_8)) }
-
-            val responseCode = connection.responseCode
-            val stream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
-            val response = stream.bufferedReader().use { it.readText() }
-
-            if (responseCode in 200..299) {
-                val json = JSONObject(response)
-                json.optJSONArray("choices")
-                    ?.optJSONObject(0)
-                    ?.optJSONObject("message")
-                    ?.optString("content")
-                    ?.trim()
-            } else {
-                Log.e("SilentBridge", "Groq error $responseCode: $response")
-                null
-            }
-        } catch (e: Exception) {
-            Log.e("SilentBridge", "Groq exception: ${e.message}")
-            null
-        }
-    }
-
-    private suspend fun makeRawGeminiRequest(prompt: String): String? = withContext(Dispatchers.IO) {
-        try {
-            val url = java.net.URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GEMINI_API_KEY}")
-            val connection = url.openConnection() as java.net.HttpURLConnection
-            connection.requestMethod = "POST"
-            connection.setRequestProperty("Content-Type", "application/json")
-            connection.doOutput = true
-            connection.connectTimeout = 8000
-            connection.readTimeout = 15000
-
-            val jsonBody = JSONObject()
-            val contents = JSONArray()
-            val contentObj = JSONObject()
-            val parts = JSONArray()
-            parts.put(JSONObject().put("text", "ROBOTIC TOKEN REARRANGER: Rearrange concepts using ONLY provided words + [is, am, are, and, or, but, also, the, a, to, for]. NO EXTRA INFO. USER: $prompt"))
-            contentObj.put("parts", parts)
-            contents.put(contentObj)
-            jsonBody.put("contents", contents)
-            
-            val config = JSONObject()
-            config.put("temperature", 0.0)
-            config.put("maxOutputTokens", 60)
-            jsonBody.put("generationConfig", config)
-
-            connection.outputStream.use { it.write(jsonBody.toString().toByteArray(Charsets.UTF_8)) }
-
-            val responseCode = connection.responseCode
-            val stream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
-            val responseString = stream.bufferedReader().use { it.readText() }
-
-            if (responseCode in 200..299) {
-                val jsonObject = JSONObject(responseString)
-                val candidates = jsonObject.optJSONArray("candidates")
-                if (candidates != null && candidates.length() > 0) {
-                    val content = candidates.getJSONObject(0).optJSONObject("content")
-                    val partsRes = content?.optJSONArray("parts")
-                    if (partsRes != null && partsRes.length() > 0) {
-                        return@withContext partsRes.getJSONObject(0).optString("text")
-                    }
-                }
-                null
-            } else {
-                Log.e("SilentBridge", "Gemini error: $responseString")
-                null
-            }
-        } catch (e: Exception) {
-            Log.e("SilentBridge", "Gemini exception: ${e.message}")
-            null
-        }
-    }
 
     fun loadLabels() {
         viewModelScope.launch {
@@ -439,35 +346,22 @@ class MainViewModel(
                     ) }
                     translateSentence(fallback)
                 }
-            } catch (e: Exception) {
+            } catch (t: Throwable) {
+                Log.e("SilentBridge", "Sentence formation error", t)
+                val fallback = words.joinToString(" ")
+                    .lowercase().replaceFirstChar { it.uppercase() } + "."
                 _uiState.update { it.copy(
                     isFormingSentence = false,
-                    sentenceError = "AI Error: ${e.message ?: "Unknown error"}"
+                    formedSentence = fallback,
+                    sentenceError = "Error: ${t.message ?: "Unknown error"}"
                 ) }
             }
         }
     }
 
     private suspend fun callGeminiNano(words: List<String>): String? {
-        val count = words.size
-        val wordList = words.joinToString(", ")
-        
-        val prompt = "Input tokens: $wordList\nTask: Rearrange tokens into exactly ONE simple valid English sentence. Constraint: Use EVERY provided token and ONLY fillers: [is, am, are, and, or, but, also, the, a, to, for]. No extra context. Reply ONLY with the sentence text."
-
-        return try {
-            val groqResult = makeGroqRequest(prompt)
-            if (groqResult != null) {
-                Log.i("SilentBridge", "Translated via Groq: $groqResult")
-                return groqResult
-            }
-            
-            val geminiResult = makeRawGeminiRequest(prompt)
-            Log.i("SilentBridge", "Groq failed, Gemini result: $geminiResult")
-            geminiResult?.trim()?.takeIf { it.isNotBlank() }
-        } catch (e: Exception) {
-            Log.e("SilentBridge", "Translation failed: ${e.message}")
-            throw e
-        }
+        val result = languageEngineUseCase.reconstructSentence(words)
+        return result.getOrNull()
     }
 
     fun fetchAlternativesForWord(wordIndex: Int, word: String) {
@@ -480,13 +374,20 @@ class MainViewModel(
 
     private suspend fun callGeminiNanoForAlternatives(word: String, sentence: String): List<String> {
         return try {
+            val systemPrompt = "You are a helpful assistant suggesting alternative words."
+            val userPrompt = "Sentence: \"$sentence\"\nSuggest exactly 3 alternative single words for \"$word\".\nReply with ONLY the 3 words separated by commas."
             val prompt = """
-                Sentence: "$sentence"
-                Suggest exactly 3 alternative single words for "$word".
-                Reply with ONLY the 3 words separated by commas.
+                <|im_start|>system
+                $systemPrompt<|im_end|>
+                <|im_start|>user
+                $userPrompt<|im_end|>
+                <|im_start|>assistant
+                
             """.trimIndent()
 
-            val text = makeGroqRequest(prompt) ?: makeRawGeminiRequest(prompt)
+            val result = languageEngineUseCase.generateDirect(prompt)
+            val text = result.getOrNull()
+
             text?.split(",")
                 ?.map { it.trim() }
                 ?.filter { it.isNotBlank() }

@@ -36,12 +36,18 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+    testOptions {
+        unitTests {
+            isReturnDefaultValues = true
+        }
+    }
     buildFeatures {
         compose = true
         viewBinding = true
     }
     androidResources {
         noCompress += "tflite"
+        noCompress += "task"
     }
     packaging {
         resources {
@@ -82,6 +88,7 @@ dependencies {
     implementation(libs.gson)
     implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
     implementation(libs.mlkit.translate)
+    implementation(libs.mediapipe.genai)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

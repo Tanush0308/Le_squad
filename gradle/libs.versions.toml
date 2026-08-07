@@ -21,8 +21,10 @@ tensorflowLiteSupport = "0.5.0"
 gson = "2.11.0"
 mlkitTranslate = "17.0.3"
 composeIcons = "1.7.8"
+mediapipeGenai = "0.10.35"
 
 [libraries]
+mediapipe-genai = { group = "com.google.mediapipe", name = "tasks-genai", version.ref = "mediapipeGenai" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
