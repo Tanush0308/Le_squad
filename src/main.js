@@ -226,25 +226,23 @@ function loadCalibration() {
 }
 
 /**
- * Converts a raw Hall sensor reading to a finger-bend factor [0.0 – 1.0].
- *
- * Coordinate system (user-defined, fixed):
- *  • Neutral centre  = 2000  → bend = 1.0 (finger fully curled)
- *  • Full deflection = ±500+ → bend = 0.0 (finger straight: raw ≤ 1500 OR raw ≥ 2500)
- *  • Linear ramp between 2000 and ±500 deflection from 2000
- *
- * Direction is symmetric: the magnet can be pushed either way.
+ * Converts a raw Hall sensor reading to a finger-bend factor [0.0 – 1.0]
+ * based on the dynamic calibration array.
  */
-function normalizeFinger(raw) {
-  const CENTER    = 2000;  // Neutral Hall sensor value (finger curled)
-  const FULL_BEND = 500;   // Deflection at or above this → 0.0 (finger straight)
+function normalizeFinger(raw, fingerIndex) {
+  const minVal = calibration.min[fingerIndex]; // Straight (0.0)
+  const maxVal = calibration.max[fingerIndex]; // Bent (1.0)
 
-  const deviation = Math.abs(raw - CENTER);
+  if (minVal === maxVal) return 0.0; // Avoid division by zero
 
-  if (deviation >= FULL_BEND) return 0.0;    // Beyond full-bend threshold → straight
+  // Linear scaling between min and max
+  let bend = (raw - minVal) / (maxVal - minVal);
 
-  // Linear scaling: 2000 is 1.0 (curled), moving towards ±500 deflection decreases bend to 0.0 (straight)
-  return 1.0 - (deviation / FULL_BEND);
+  // Clamp to [0.0, 1.0]
+  if (bend < 0.0) bend = 0.0;
+  if (bend > 1.0) bend = 1.0;
+
+  return bend;
 }
 
 // ==========================================================================
@@ -348,13 +346,12 @@ function parseLine(line) {
   // 2. Cache raw values for calibration logic
   currentRawFingers = [thumbRaw, indexRaw, middleRaw, ringRaw, pinkyRaw];
 
-  // 3. Normalize finger bends using fixed-centre Hall model
-  //    (symmetric deviation from 2000; dead zone ±100; full bend at ±500)
-  const thumbBend  = normalizeFinger(thumbRaw);
-  const indexBend  = normalizeFinger(indexRaw);
-  const middleBend = normalizeFinger(middleRaw);
-  const ringBend   = normalizeFinger(ringRaw);
-  const pinkyBend  = normalizeFinger(pinkyRaw);
+  // 3. Normalize finger bends using the saved dynamic calibration ranges
+  const thumbBend  = normalizeFinger(thumbRaw, 0);
+  const indexBend  = normalizeFinger(indexRaw, 1);
+  const middleBend = normalizeFinger(middleRaw, 2);
+  const ringBend   = normalizeFinger(ringRaw, 3);
+  const pinkyBend  = normalizeFinger(pinkyRaw, 4);
 
   // 4. Show raw & bend values in sidebar
   currentRawFingers = [thumbRaw, indexRaw, middleRaw, ringRaw, pinkyRaw];
