@@ -214,7 +214,7 @@ class MainViewModel(
             jsonBody.put("max_tokens", 60)
             
             val messages = JSONArray()
-            val systemMsg = "You are a robotic verbatim sign language to English token-rearranger. Task: Output ONLY a simple sentence formed by rearranging the input tokens. Rules: 1. Use EVERY input token provided. 2. You may ONLY add basic connecting words if necessary: [is, am, are, and, or, but, also, the, a, to, for]. 3. PROHIBITED: Do not add ANY other words, context, or adjectives (e.g., NEVER add 'to sustain myself'). 4. Response must contain ONLY the sentence text."
+            val systemMsg = "You are an expert sign language to English interpreter. Task: Translate the provided sequence of sign language words (glosses) into a natural, grammatically correct English sentence. Rules: 1. Convey the exact meaning of the signed words. 2. You may add necessary articles, prepositions, pronouns, or conjugations to make the sentence sound natural. 3. Do not add extra context or information that was not signed. 4. Reply ONLY with the final sentence text."
             messages.put(JSONObject().put("role", "system").put("content", systemMsg))
             messages.put(JSONObject().put("role", "user").put("content", prompt))
             jsonBody.put("messages", messages)
@@ -256,7 +256,7 @@ class MainViewModel(
             val contents = JSONArray()
             val contentObj = JSONObject()
             val parts = JSONArray()
-            parts.put(JSONObject().put("text", "ROBOTIC TOKEN REARRANGER: Rearrange concepts using ONLY provided words + [is, am, are, and, or, but, also, the, a, to, for]. NO EXTRA INFO. USER: $prompt"))
+            parts.put(JSONObject().put("text", "SIGN LANGUAGE INTERPRETER: Translate the sequence of concepts into a natural English sentence. Add necessary articles/grammar but no extra context. Reply ONLY with the sentence text. USER: $prompt"))
             contentObj.put("parts", parts)
             contents.put(contentObj)
             jsonBody.put("contents", contents)
@@ -452,7 +452,7 @@ class MainViewModel(
         val count = words.size
         val wordList = words.joinToString(", ")
         
-        val prompt = "Input tokens: $wordList\nTask: Rearrange tokens into exactly ONE simple valid English sentence. Constraint: Use EVERY provided token and ONLY fillers: [is, am, are, and, or, but, also, the, a, to, for]. No extra context. Reply ONLY with the sentence text."
+        val prompt = "Sign language tokens: $wordList\nTask: Translate these tokens into a single, natural-sounding English sentence. Reply ONLY with the sentence text."
 
         return try {
             val groqResult = makeGroqRequest(prompt)
