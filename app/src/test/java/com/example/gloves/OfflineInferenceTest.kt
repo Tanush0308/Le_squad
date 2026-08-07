@@ -88,31 +88,41 @@ class OfflineInferenceTest {
     fun testValidator_allowsHelperWords() {
         val validator = SemanticValidator()
         val tokens = listOf("I", "NEED", "FOOD", "WATER")
-        assertTrue(validator.isValid("I need food and water.", tokens))
+        val structure = ParsedStructure(GestureIntent.REQUEST, objects = listOf("FOOD", "WATER"))
+        assertTrue(validator.isValid("I need food and water.", structure, tokens))
     }
 
     @Test
     fun testValidator_allowsArticles() {
         val validator = SemanticValidator()
         val tokens = listOf("I", "NEED", "FOOD")
-        assertTrue(validator.isValid("I need the food.", tokens))
+        val structure = ParsedStructure(GestureIntent.REQUEST, objects = listOf("FOOD"))
+        assertTrue(validator.isValid("I need the food.", structure, tokens))
     }
 
     @Test
     fun testValidator_rejectsUnrelatedSentence() {
         val validator = SemanticValidator()
-        // Tokens are FOOD+WATER, but sentence talks about something completely different
-        // with zero overlap with the token set
         val tokens = listOf("FOOD", "WATER")
-        // "Quantum physics theorem" shares zero words with [food, water] and is not in helpers
-        assertFalse(validator.isValid("Quantum physics theorem.", tokens))
+        val structure = ParsedStructure(GestureIntent.REQUEST, objects = listOf("FOOD", "WATER"))
+        assertFalse(validator.isValid("Quantum physics theorem.", structure, tokens))
+    }
+
+    @Test
+    fun testValidator_rejectsMissingObjects() {
+        val validator = SemanticValidator()
+        val tokens = listOf("I", "WANT", "WATER")
+        val structure = ParsedStructure(GestureIntent.REQUEST, objects = listOf("WATER"))
+        // Sentence mentions "I want food" but misses the core object "WATER"
+        assertFalse(validator.isValid("I want food.", structure, tokens))
     }
 
     @Test
     fun testValidator_underscoreTokensSplit() {
         val validator = SemanticValidator()
         val tokens = listOf("THANK_YOU")
-        assertTrue(validator.isValid("Thank you.", tokens))
+        val structure = ParsedStructure(GestureIntent.CLOSING)
+        assertTrue(validator.isValid("Thank you.", structure, tokens))
     }
 
     // ── FallbackQwenRepository ────────────────────────────────────────────────

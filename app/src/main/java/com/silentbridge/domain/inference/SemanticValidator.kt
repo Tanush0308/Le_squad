@@ -22,12 +22,24 @@ class SemanticValidator {
 
     /**
      * Returns true if the generated sentence is semantically related to the original tokens.
-     * Splits underscore tokens (e.g. THANK_YOU → "thank", "you") before checking.
+     * Checks that:
+     * 1. If any key object is defined, it MUST be present in the generated sentence.
+     * 2. Overlap is verified with tokens.
      */
-    fun isValid(generated: String, originalTokens: List<String>): Boolean {
+    fun isValid(generated: String, structure: ParsedStructure, originalTokens: List<String>): Boolean {
         if (generated.isBlank()) return false
 
         val lowerGen = generated.lowercase()
+
+        // 1. Mandatory Object verification: If original tokens had object concepts,
+        // they must be represented in the generated text.
+        for (obj in structure.objects) {
+            val lowerObj = obj.lowercase()
+            // Check if the object or a reasonable singular/plural/stem is in the sentence
+            if (!lowerGen.contains(lowerObj)) {
+                return false
+            }
+        }
 
         // Build token set: split underscores (THANK_YOU → thank + you)
         val tokenSet = mutableSetOf<String>()
@@ -55,3 +67,4 @@ class SemanticValidator {
         return unknownCount == 0
     }
 }
+

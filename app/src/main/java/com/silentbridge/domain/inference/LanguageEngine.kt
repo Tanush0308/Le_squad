@@ -94,8 +94,8 @@ class LanguageEngine(
         }
 
         if (inferenceResult.isFailure) {
-            // Graceful fallback: rule-based join
-            val fallback = buildFallback(greetingPrefix, coreTokens, closingSuffix)
+            // Graceful fallback: rule-based join using NaturalSentenceBuilder
+            val fallback = buildFallback(greetingPrefix, structure, closingSuffix)
             Log.w(TAG, "Inference failed, using fallback: $fallback")
             return Result.success(fallback)
         }
@@ -103,9 +103,9 @@ class LanguageEngine(
         val raw = inferenceResult.getOrNull()?.trim() ?: ""
         val cleaned = cleanOutput(raw)
 
-        // Validate output — if it adds unauthorized words, fall back
-        val isValid = validator.isValid(cleaned, coreTokens + listOf("hello", "thank", "you"))
-        val sentence = if (isValid) cleaned else buildFallback(null, coreTokens, null)
+        // Validate output — if it adds unauthorized words or misses key objects, fall back
+        val isValid = validator.isValid(cleaned, structure, coreTokens + listOf("hello", "thank", "you"))
+        val sentence = if (isValid) cleaned else NaturalSentenceBuilder.build(structure)
 
         val final = buildWithDecorations(greetingPrefix, sentence, closingSuffix)
         Log.d(TAG, "Final sentence: $final")
@@ -119,11 +119,10 @@ class LanguageEngine(
 
     private fun buildFallback(
         greeting: String?,
-        coreTokens: List<String>,
+        structure: ParsedStructure,
         closing: String?
     ): String {
-        val core = coreTokens.joinToString(" ") { it.lowercase() }
-            .replaceFirstChar { it.uppercase() } + "."
+        val core = NaturalSentenceBuilder.build(structure)
         return buildWithDecorations(greeting, core, closing)
     }
 
