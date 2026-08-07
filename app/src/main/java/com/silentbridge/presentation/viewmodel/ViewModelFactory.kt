@@ -67,6 +67,21 @@ class ViewModelFactory(private val context: Context) : ViewModelProvider.Factory
             val languageEngine = LanguageEngine(interpreter, promptBuilder, semanticValidator, qwenRepository)
             val languageEngineUseCase = LanguageEngineUseCase(languageEngine)
 
+            // ── Translation / Speech / Language stack ──────────────────────────
+            val languagePrefs = context.getSharedPreferences("silentbridge_language", Context.MODE_PRIVATE)
+            val languageManager = com.silentbridge.data.language.LanguageManager(languagePrefs)
+
+            val translationManager = com.silentbridge.data.translation.MLKitTranslationManager()
+
+            val speechManager = com.silentbridge.data.speech.AndroidSpeechManager(
+                context.applicationContext as Application
+            )
+
+            val translateSentenceUseCase = TranslateSentenceUseCase(translationManager)
+            val speakSentenceUseCase = SpeakSentenceUseCase(speechManager)
+            val changeLanguageUseCase = ChangeLanguageUseCase(languageManager)
+            // ───────────────────────────────────────────────────────────────────
+
             @Suppress("UNCHECKED_CAST")
             return MainViewModel(
                 context.applicationContext as Application,
@@ -79,7 +94,11 @@ class ViewModelFactory(private val context: Context) : ViewModelProvider.Factory
                 feedbackRepository,
                 feedbackLogger,
                 feedbackExporter,
-                languageEngineUseCase
+                languageEngineUseCase,
+                languageManager,
+                translateSentenceUseCase,
+                speakSentenceUseCase,
+                changeLanguageUseCase
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")

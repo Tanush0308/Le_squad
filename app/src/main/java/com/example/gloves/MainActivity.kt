@@ -31,7 +31,10 @@ import com.silentbridge.presentation.screens.DiagnosticsScreen
 import com.silentbridge.presentation.screens.HomeScreen
 import com.silentbridge.presentation.screens.StatsScreen
 import com.silentbridge.presentation.screens.ManageWordsScreen
+import com.silentbridge.presentation.screens.VoiceSettingsScreen
 import com.silentbridge.presentation.viewmodel.MainViewModel
+import com.silentbridge.presentation.viewmodel.SettingsViewModel
+import com.silentbridge.presentation.viewmodel.SettingsViewModelFactory
 import com.silentbridge.presentation.viewmodel.ViewModelFactory
 
 class MainActivity : ComponentActivity() {
@@ -148,7 +151,8 @@ fun SilentBridgeApp(viewModel: MainViewModel) {
                 onNavigateToDevices = { navController.navigate(Screen.Devices.route) },
                 onNavigateToDiagnostics = { navController.navigate(Screen.Diagnostics.route) },
                 onNavigateToStats = { navController.navigate(Screen.Stats.route) },
-                onNavigateToManageWords = { navController.navigate(Screen.ManageWords.route) }
+                onNavigateToManageWords = { navController.navigate(Screen.ManageWords.route) },
+                onNavigateToVoiceSettings = { navController.navigate(Screen.VoiceSettings.route) }
             )
         }
         composable(Screen.Devices.route) {
@@ -179,6 +183,16 @@ fun SilentBridgeApp(viewModel: MainViewModel) {
                     viewModel.loadLabels()
                     navController.popBackStack() 
                 }
+            )
+        }
+        composable(Screen.VoiceSettings.route) {
+            val localContext = androidx.compose.ui.platform.LocalContext.current
+            val settingsViewModel = viewModel<SettingsViewModel>(
+                factory = SettingsViewModelFactory(localContext.applicationContext)
+            )
+            VoiceSettingsScreen(
+                viewModel = settingsViewModel,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }

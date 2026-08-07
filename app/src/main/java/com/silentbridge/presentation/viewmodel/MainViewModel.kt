@@ -2,33 +2,30 @@ package com.silentbridge.presentation.viewmodel
 
 import android.app.Application
 import android.content.Context
-import android.speech.tts.TextToSpeech
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.ai.client.generativeai.GenerativeModel
-import com.google.ai.client.generativeai.type.generationConfig
-import com.google.mlkit.common.model.DownloadConditions
-import com.google.mlkit.common.model.RemoteModelManager
-import com.google.mlkit.nl.translate.TranslateLanguage
-import com.google.mlkit.nl.translate.Translation
-import com.google.mlkit.nl.translate.Translator
-import com.google.mlkit.nl.translate.TranslatorOptions
 import com.silentbridge.data.feedback.FeedbackExporter
 import com.silentbridge.data.feedback.FeedbackLogger
 import com.silentbridge.data.repository.FeedbackRepository
+import com.silentbridge.domain.language.SupportedLanguage
 import com.silentbridge.domain.model.BluetoothDeviceDomain
 import com.silentbridge.domain.model.ConnectionState
 import com.silentbridge.domain.model.GestureResult
 import com.silentbridge.domain.model.SensorFrame
+import com.silentbridge.domain.speech.TtsStatus
+import com.silentbridge.domain.usecase.ChangeLanguageUseCase
 import com.silentbridge.domain.usecase.ConnectDeviceUseCase
 import com.silentbridge.domain.usecase.DisconnectDeviceUseCase
 import com.silentbridge.domain.usecase.GetPairedDevicesUseCase
+import com.silentbridge.domain.usecase.LanguageEngineUseCase
 import com.silentbridge.domain.usecase.ObserveConnectionStateUseCase
 import com.silentbridge.domain.usecase.ObserveSensorDataUseCase
+import com.silentbridge.domain.usecase.SpeakSentenceUseCase
+import com.silentbridge.domain.usecase.TranslateSentenceUseCase
 import com.silentbridge.gesture.GestureEngine
 import com.silentbridge.gesture.InferenceState
-import com.silentbridge.domain.usecase.LanguageEngineUseCase
+import com.silentbridge.domain.repository.LanguageRepository
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,7 +35,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import org.json.JSONArray
 import org.json.JSONObject
-import java.util.Locale
 
 data class MainUiState(
     val connectionState: ConnectionState = ConnectionState.DISCONNECTED,
@@ -61,9 +57,10 @@ data class MainUiState(
     val alternativesFor: Pair<Int, List<String>>? = null,
     val modelLabels: List<String> = emptyList(),
     val customLabels: List<String> = emptyList(),
-    val targetLanguageCode: String = "en",
-    val isDownloadingModel: Boolean = false,
-    val modelDownloadProgress: Float = 0f
+    // Language is now typed — SupportedLanguage instead of a raw string code
+    val selectedLanguage: SupportedLanguage = SupportedLanguage.English,
+    val ttsStatus: TtsStatus = TtsStatus.Initializing,
+    val isDownloadingModel: Boolean = false
 )
 
 class MainViewModel(
@@ -77,12 +74,14 @@ class MainViewModel(
     private val feedbackRepository: FeedbackRepository,
     private val feedbackLogger: FeedbackLogger,
     private val feedbackExporter: FeedbackExporter,
-    private val languageEngineUseCase: LanguageEngineUseCase
+    private val languageEngineUseCase: LanguageEngineUseCase,
+    private val languageRepository: LanguageRepository,
+    private val translateSentenceUseCase: TranslateSentenceUseCase,
+    private val speakSentenceUseCase: SpeakSentenceUseCase,
+    private val changeLanguageUseCase: ChangeLanguageUseCase
 ) : ViewModel() {
 
     private val prefs = application.getSharedPreferences("silentbridge_feedback", Context.MODE_PRIVATE)
-    private var tts: TextToSpeech? = null
-    private var translator: Translator? = null
 
     // No cloud API keys — inference is fully offline via LanguageEngine
     private val KEY_CUSTOM_WORDS = "custom_words"
@@ -99,11 +98,7 @@ class MainViewModel(
     private val PAUSE_DURATION_MS = 5000L
 
     init {
-        val savedLang = prefs.getString(KEY_TARGET_LANG, "en") ?: "en"
-        _uiState.update { it.copy(targetLanguageCode = savedLang) }
-        
-        initTTS()
-        initTranslator(savedLang)
+        observeSelectedLanguage()
         loadLabels()
         observeConnection()
         observeSensorData()
@@ -115,87 +110,40 @@ class MainViewModel(
         updateFeedbackCount()
     }
 
-    private fun initTTS() {
-        tts = TextToSpeech(application) { status ->
-            if (status != TextToSpeech.SUCCESS) {
-                Log.e("SilentBridge", "TTS Initialization failed!")
-            } else {
-                updateTTSLanguage(_uiState.value.targetLanguageCode)
+    private fun observeSelectedLanguage() {
+        viewModelScope.launch {
+            languageRepository.selectedLanguage.collect { lang ->
+                _uiState.update { it.copy(selectedLanguage = lang) }
             }
         }
     }
 
-    private fun updateTTSLanguage(langCode: String) {
-        val locale = when (langCode) {
-            "hi" -> Locale("hi", "IN")
-            "mr" -> Locale("mr", "IN")
-            "gu" -> Locale("gu", "IN")
-            "ta" -> Locale("ta", "IN")
-            "te" -> Locale("te", "IN")
-            "kn" -> Locale("kn", "IN")
-            else -> Locale.ENGLISH
+    fun setTargetLanguage(language: SupportedLanguage) {
+        changeLanguageUseCase(language)
+        // Re-translate current sentence if one exists
+        _uiState.value.formedSentence?.let { sentence ->
+            viewModelScope.launch { translateAndAutoSpeak(sentence) }
         }
-        tts?.language = locale
     }
 
-    fun setTargetLanguage(langCode: String) {
-        if (_uiState.value.targetLanguageCode == langCode) return
-        
-        prefs.edit().putString(KEY_TARGET_LANG, langCode).apply()
-        _uiState.update { it.copy(targetLanguageCode = langCode, translatedSentence = null) }
-        updateTTSLanguage(langCode)
-        initTranslator(langCode)
-    }
+    // Convenience overload for HomeScreen language dialog (still accepts code strings)
+    fun setTargetLanguage(langCode: String) = setTargetLanguage(SupportedLanguage.fromCode(langCode))
 
-    private fun initTranslator(langCode: String) {
-        translator?.close()
-        if (langCode == "en") {
-            translator = null
-            return
-        }
-
-        val options = TranslatorOptions.Builder()
-            .setSourceLanguage(TranslateLanguage.ENGLISH)
-            .setTargetLanguage(langCode)
-            .build()
-        
-        val newTranslator = Translation.getClient(options)
-        
-        _uiState.update { it.copy(isDownloadingModel = true) }
-        
-        val conditions = DownloadConditions.Builder()
-            .requireWifi()
-            .build()
-            
-        newTranslator.downloadModelIfNeeded(conditions)
-            .addOnSuccessListener {
-                _uiState.update { it.copy(isDownloadingModel = false) }
-                translator = newTranslator
-                Log.i("SilentBridge", "Translation model for $langCode ready")
-                // If we already have a sentence, translate it now
-                _uiState.value.formedSentence?.let { translateSentence(it) }
-            }
-            .addOnFailureListener { e ->
-                _uiState.update { it.copy(isDownloadingModel = false, sentenceError = "Model download failed: ${e.message}") }
-                Log.e("SilentBridge", "Translation model download failed", e)
-            }
-    }
-
+    /**
+     * Translates [text] into the currently selected language, updates UI state,
+     * then auto-speaks the translated result (per user preference).
+     */
     private fun translateSentence(text: String) {
-        val currentTranslator = translator
-        if (currentTranslator == null) {
-            _uiState.update { it.copy(translatedSentence = text) }
-            return
-        }
+        viewModelScope.launch { translateAndAutoSpeak(text) }
+    }
 
-        currentTranslator.translate(text)
-            .addOnSuccessListener { translatedText ->
-                _uiState.update { it.copy(translatedSentence = translatedText) }
-            }
-            .addOnFailureListener { e ->
-                Log.e("SilentBridge", "Translation failed", e)
-                _uiState.update { it.copy(translatedSentence = text) } // Fallback to English
-            }
+    private suspend fun translateAndAutoSpeak(text: String) {
+        val lang = _uiState.value.selectedLanguage
+        val translated = if (lang == SupportedLanguage.English) text
+                         else translateSentenceUseCase(text, lang)
+        _uiState.update { it.copy(translatedSentence = translated) }
+        // Auto-speak the translated result immediately
+        speakSentenceUseCase(translated, lang)
     }
 
 
@@ -427,8 +375,12 @@ class MainViewModel(
         _uiState.update { it.copy(formedSentence = null, translatedSentence = null, sentenceError = null, alternativesFor = null) }
     }
 
+    /** Speak the given sentence in the currently selected language. */
     fun speakSentence(sentence: String) {
-        tts?.speak(sentence, TextToSpeech.QUEUE_FLUSH, null, "sentence_${System.currentTimeMillis()}")
+        val lang = _uiState.value.selectedLanguage
+        viewModelScope.launch {
+            speakSentenceUseCase(sentence, lang)
+        }
     }
 
     fun onFeedbackYes() {
@@ -548,8 +500,7 @@ class MainViewModel(
 
     override fun onCleared() {
         super.onCleared()
-        tts?.shutdown()
-        translator?.close()
+        // TTS and translator lifecycle is managed by AndroidSpeechManager / MLKitTranslationManager
     }
 
     fun clearError() {

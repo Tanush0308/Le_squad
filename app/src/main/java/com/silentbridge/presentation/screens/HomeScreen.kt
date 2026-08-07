@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.silentbridge.domain.language.SupportedLanguage
 import com.silentbridge.domain.model.ConnectionState
 import com.silentbridge.gesture.InferenceState
 import com.silentbridge.presentation.viewmodel.MainViewModel
@@ -29,21 +30,14 @@ fun HomeScreen(
     onNavigateToDevices: () -> Unit,
     onNavigateToDiagnostics: () -> Unit,
     onNavigateToStats: () -> Unit,
-    onNavigateToManageWords: () -> Unit
+    onNavigateToManageWords: () -> Unit,
+    onNavigateToVoiceSettings: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showMenu by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
 
-    val languages = listOf(
-        "en" to "English",
-        "hi" to "Hindi (हिंदी)",
-        "mr" to "Marathi (मराठी)",
-        "gu" to "Gujarati (ગુજરાતી)",
-        "ta" to "Tamil (தமிழ்)",
-        "te" to "Telugu (తెలుగు)",
-        "kn" to "Kannada (ಕನ್ನಡ)"
-    )
+    val languages = SupportedLanguage.all.map { it.code to "${it.displayName} (${it.nativeName})" }
 
     if (showLanguageDialog) {
         AlertDialog(
@@ -59,7 +53,7 @@ fun HomeScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
-                                selected = uiState.targetLanguageCode == code,
+                                selected = uiState.selectedLanguage.code == code,
                                 onClick = {
                                     viewModel.setTargetLanguage(code)
                                     showLanguageDialog = false
@@ -114,6 +108,13 @@ fun HomeScreen(
                             onClick = {
                                 showMenu = false
                                 onNavigateToManageWords()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Voice & Language") },
+                            onClick = {
+                                showMenu = false
+                                onNavigateToVoiceSettings()
                             }
                         )
                     }
@@ -223,14 +224,21 @@ fun HomeScreen(
                         Text("English:", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
                         Text(text = uiState.formedSentence!!, style = MaterialTheme.typography.bodyLarge)
                         
-                        if (uiState.translatedSentence != null && uiState.targetLanguageCode != "en") {
+                        if (uiState.translatedSentence != null && uiState.selectedLanguage != SupportedLanguage.English) {
                             HorizontalDivider(Modifier.padding(vertical = 8.dp))
                             Text("Translation:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                             Text(text = uiState.translatedSentence!!, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                         }
 
                         Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = { viewModel.speakSentence(uiState.formedSentence!!) }, modifier = Modifier.weight(1f)) {
+                            Button(
+                                onClick = {
+                                    // Speak translated sentence if available, otherwise speak English
+                                    val toSpeak = uiState.translatedSentence ?: uiState.formedSentence!!
+                                    viewModel.speakSentence(toSpeak)
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
                                 Text("Speak")
                             }
                             OutlinedButton(onClick = { viewModel.clearSentence(); viewModel.clearBuffer() }) {
