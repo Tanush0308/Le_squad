@@ -5,12 +5,17 @@ import com.silentbridge.domain.model.TutorialItem
 /**
  * Static repository of ASL sign language tutorials for the 13-word SilentBridge vocabulary.
  *
- * Video Sources (all freely accessible on YouTube):
- *  - Primary: ASLUniversity / Dr. Bill Vicars (lifeprint.com) — @ASLUniversity channel
- *  - Secondary: SignwithRobert, Signing Naturally community uploads
+ * All video IDs were live-verified via YouTube browser search in August 2026.
+ * Thumbnails use the standard YouTube thumbnail CDN: https://img.youtube.com/vi/[ID]/hqdefault.jpg
  *
- * YouTube IDs were verified for accuracy as of August 2026.
- * Each description follows the Lifeprint.com movement notation conventions.
+ * Sources:
+ *  - Grab Official (multiple signs)
+ *  - Sign Language Lessons
+ *  - ASL LOVE
+ *  - Learn How to Sign
+ *  - SigningWithOmar
+ *  - talkwithhands
+ *  - MrPhil4
  */
 object TutorialRepository {
 
@@ -20,10 +25,10 @@ object TutorialRepository {
             id = 1,
             word = "Hello",
             emoji = "👋",
-            youtubeId = "ianGHPr_4eQ",  // ASLUniversity — "HELLO in ASL"
+            youtubeId = "SsLvqfTXo78",
             description = "Start with a flat, open hand (B handshape) near your right temple. " +
-                    "Swing your hand outward and forward, away from your forehead, " +
-                    "ending with your palm facing out — like a casual salute or wave.",
+                    "Swing your hand outward and forward away from your forehead — " +
+                    "like a relaxed salute or casual wave.",
             handshape = "Open B (flat hand)"
         ),
 
@@ -31,10 +36,10 @@ object TutorialRepository {
             id = 2,
             word = "Thank You",
             emoji = "🙏",
-            youtubeId = "c7DtReAXNow",  // ASLUniversity — "THANK YOU in ASL"
-            description = "Touch the fingertips of your flat, open hand to your chin " +
-                    "(or just below your lips). Move your hand forward and slightly down, " +
-                    "as if tossing a kiss or extending gratitude outward toward the person.",
+            youtubeId = "EPlhDhll9mw",
+            description = "Touch the fingertips of your flat, open hand to your chin or just " +
+                    "below your lips. Move your hand forward and slightly downward — " +
+                    "as if tossing gratitude outward toward the person.",
             handshape = "Open B (flat hand)"
         ),
 
@@ -42,9 +47,9 @@ object TutorialRepository {
             id = 3,
             word = "I / Me",
             emoji = "👤",
-            youtubeId = "yLhKtAJR7ok",  // ASLUniversity — "Pronouns in ASL (I, YOU, HE, SHE)"
+            youtubeId = "5X4gqWqqlQM",
             description = "Simply point your index finger directly at the centre of your own chest. " +
-                    "Keep the motion small and deliberate. This also works for 'Me'.",
+                    "Keep the motion small and deliberate. This is also used for 'Me'.",
             handshape = "1 (index finger pointing)"
         ),
 
@@ -52,9 +57,9 @@ object TutorialRepository {
             id = 4,
             word = "You",
             emoji = "🫵",
-            youtubeId = "yLhKtAJR7ok",  // Same video covers I/You/He/She pronouns
+            youtubeId = "5X4gqWqqlQM",
             description = "Point your index finger directly toward the person you are addressing. " +
-                    "If signing to a group, sweep your pointing finger across the audience.",
+                    "If addressing a group, sweep your pointing finger across the audience.",
             handshape = "1 (index finger pointing)"
         ),
 
@@ -62,10 +67,10 @@ object TutorialRepository {
             id = 5,
             word = "Want",
             emoji = "🤲",
-            youtubeId = "OcLJ3uMKBM0",  // ASLUniversity — "WANT in ASL"
-            description = "Hold both hands out in front of you, palms facing up, fingers spread " +
-                    "slightly open. Pull both hands back toward your body while simultaneously " +
-                    "curling your fingers into a claw/hook shape — as if pulling something toward you.",
+            youtubeId = "1cTlrAne65A",
+            description = "Hold both hands out in front of you, palms facing up, fingers slightly " +
+                    "open. Pull both hands back toward your body while simultaneously curling " +
+                    "your fingers into a claw shape — as if pulling something toward you.",
             handshape = "Bent 5 (claw hands, palms up)"
         ),
 
@@ -73,10 +78,10 @@ object TutorialRepository {
             id = 6,
             word = "Need",
             emoji = "✊",
-            youtubeId = "3gAD3C8FKOQ",  // ASLUniversity — "NEED / MUST / HAVE-TO in ASL"
+            youtubeId = "-77fXqrdrmw",
             description = "Form an X handshape (hook your index finger while keeping other fingers " +
-                    "closed). Hold it in front of you and make a sharp, firm downward bend at the wrist — " +
-                    "like a single strong nod of the hand.",
+                    "closed). Hold it in front of you and make a sharp, firm downward bend at " +
+                    "the wrist — like a single strong nod of the hand.",
             handshape = "X (bent index finger)"
         ),
 
@@ -84,10 +89,10 @@ object TutorialRepository {
             id = 7,
             word = "Help",
             emoji = "🆘",
-            youtubeId = "C5xdPPLReXs",  // ASLUniversity — "HELP in ASL"
-            description = "Make a thumbs-up with your dominant hand and place it on your " +
-                    "non-dominant open palm. Lift both hands together upward — the open palm " +
-                    "is 'lifting' or supporting the thumbs-up hand.",
+            youtubeId = "Euz1g9E-Mrw",
+            description = "Make a thumbs-up with your dominant hand and place it on your non-dominant " +
+                    "open palm. Lift both hands together upward — the open palm is 'lifting' " +
+                    "or supporting the thumbs-up hand.",
             handshape = "A (thumbs-up) on flat B palm"
         ),
 
@@ -95,7 +100,7 @@ object TutorialRepository {
             id = 8,
             word = "Food",
             emoji = "🍽️",
-            youtubeId = "7_c-w9-7fPQ",  // ASLUniversity — "FOOD / EAT in ASL"
+            youtubeId = "TYKgvinRUKM",
             description = "Bring the fingertips of your dominant hand together (like pinching food) " +
                     "and tap them against your lips twice. The motion mimics bringing food to your mouth.",
             handshape = "Flat O (fingertips pinched)"
@@ -105,7 +110,7 @@ object TutorialRepository {
             id = 9,
             word = "Water",
             emoji = "💧",
-            youtubeId = "mB5n5RLR8To",  // ASLUniversity — "WATER in ASL"
+            youtubeId = "ZTetGr0Mp5k",
             description = "Form the letter W with your dominant hand (extend index, middle, " +
                     "and ring fingers). Tap the index-finger side of your W handshape " +
                     "against your chin twice.",
@@ -116,10 +121,9 @@ object TutorialRepository {
             id = 10,
             word = "Yes",
             emoji = "✅",
-            youtubeId = "TJN5wuKqsW4",  // ASLUniversity — "YES / NO in ASL"
-            description = "Make a fist (S handshape) with your dominant hand and bob it up " +
-                    "and down at the wrist — mimicking a head nodding 'yes'. Keep the motion " +
-                    "rhythmic and smooth.",
+            youtubeId = "S42k0eTQ7zM",
+            description = "Make a fist (S handshape) with your dominant hand and bob it up and down " +
+                    "at the wrist — mimicking a head nodding 'yes'. Keep the motion rhythmic.",
             handshape = "S (fist)"
         ),
 
@@ -127,21 +131,20 @@ object TutorialRepository {
             id = 11,
             word = "No",
             emoji = "❌",
-            youtubeId = "TJN5wuKqsW4",  // ASLUniversity — "YES / NO in ASL" (same video)
-            description = "Extend your index and middle fingers together alongside your thumb. " +
-                    "Snap them together quickly — like scissors closing or a mouth saying 'no'. " +
-                    "You can do this once or twice firmly.",
-            handshape = "Index + middle finger snapping to thumb"
+            youtubeId = "S42k0eTQ7zM",
+            description = "Extend your index and middle fingers alongside your thumb. Snap them " +
+                    "together quickly — like scissors closing. You can do this once or twice firmly.",
+            handshape = "Index + middle finger to thumb"
         ),
 
         TutorialItem(
             id = 12,
             word = "All",
             emoji = "🌐",
-            youtubeId = "QZQP_pD1KGc",  // ASLUniversity — "ALL / EVERY in ASL"
-            description = "Hold your non-dominant hand out flat in front of you, palm facing down. " +
-                    "With your dominant hand (also palm down), sweep it in a circular motion " +
-                    "around the non-dominant hand and then land it on top of it — palm up.",
+            youtubeId = "9eeaTThW8dY",
+            description = "Hold your non-dominant hand flat in front of you, palm facing down. " +
+                    "With your dominant hand (palm down), sweep it in a circular arc " +
+                    "around the non-dominant hand and land it on top — palm up.",
             handshape = "Open B (flat hands)"
         ),
 
@@ -149,20 +152,27 @@ object TutorialRepository {
             id = 13,
             word = "Medicine",
             emoji = "💊",
-            youtubeId = "0rGqP9_3D5A",  // ASLUniversity — "MEDICINE / DRUG in ASL"
+            youtubeId = "hIL6vc6U6LM",
             description = "Place your non-dominant hand out flat with palm facing up. " +
                     "With your dominant hand, extend your middle finger and rest its tip " +
-                    "on the palm. Rock the dominant hand back and forth at the wrist " +
-                    "like stirring or mixing — as if grinding medicine in a mortar.",
+                    "on the palm. Rock the dominant hand back and forth at the wrist — " +
+                    "like grinding medicine in a mortar.",
             handshape = "8 handshape (middle finger extended)"
         )
     )
 
-    /** Build a YouTube embed URL from a video ID for use in a WebView. */
+    /**
+     * Returns the YouTube thumbnail URL for a given video ID.
+     * Uses 'hqdefault' which gives a 480x360 image — good quality for card previews.
+     */
+    fun thumbnailUrl(youtubeId: String): String =
+        "https://img.youtube.com/vi/$youtubeId/hqdefault.jpg"
+
+    /** Build a YouTube embed URL for use in a WebView. */
     fun buildEmbedUrl(youtubeId: String): String =
         "https://www.youtube.com/embed/$youtubeId?autoplay=1&rel=0&modestbranding=1&playsinline=1"
 
-    /** Build a standard YouTube watch URL for opening in an external browser or Intent. */
+    /** Build a standard YouTube watch URL for opening externally. */
     fun buildWatchUrl(youtubeId: String): String =
         "https://www.youtube.com/watch?v=$youtubeId"
 }

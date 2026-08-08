@@ -16,24 +16,29 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.OpenInBrowser
-import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.PlayCircleFilled
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.silentbridge.data.repository.TutorialRepository
 import com.silentbridge.domain.model.TutorialItem
 
@@ -61,7 +66,7 @@ fun TutorialsScreen(
                     Column {
                         Text("Sign Tutorials", fontWeight = FontWeight.SemiBold)
                         Text(
-                            "Tap any word to watch the sign",
+                            "Tap any card to watch the ASL sign",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -85,29 +90,28 @@ fun TutorialsScreen(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
                 shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
             ) {
                 Row(
-                    modifier = Modifier.padding(12.dp),
+                    modifier = Modifier.padding(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("🤟", fontSize = 24.sp)
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Text("🤟", fontSize = 22.sp)
+                    Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = "These are American Sign Language (ASL) demonstrations. " +
-                                "Practice each sign until it feels natural.",
+                        text = "American Sign Language (ASL) demonstrations. Practice until each sign feels natural!",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
             }
 
-            // 2-column grid of word cards
+            // 2-column grid
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
-                contentPadding = PaddingValues(16.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxSize()
@@ -128,57 +132,93 @@ private fun TutorialWordCard(
     item: TutorialItem,
     onClick: () -> Unit
 ) {
+    val thumbnailUrl = remember(item.youtubeId) { TutorialRepository.thumbnailUrl(item.youtubeId) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(1f)
             .clickable { onClick() },
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            Column(
+        Box {
+            // ── YouTube Thumbnail ──────────────────────────────────────────
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(thumbnailUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = "Thumbnail for ${item.word}",
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                    .fillMaxWidth()
+                    .height(110.dp)
+            )
+
+            // Dark gradient overlay so text is always readable
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(110.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.65f)
+                            )
+                        )
+                    )
+            )
+
+            // Play button centered on the thumbnail
+            Icon(
+                imageVector = Icons.Default.PlayCircleFilled,
+                contentDescription = "Play",
+                tint = Color.White.copy(alpha = 0.9f),
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .size(42.dp)
+            )
+
+            // Word label (bottom-left of the thumbnail)
+            Text(
+                text = item.word,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(8.dp)
+            )
+
+            // Emoji badge (top-right)
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(6.dp),
+                shape = CircleShape,
+                color = Color.Black.copy(alpha = 0.55f)
             ) {
                 Text(
                     text = item.emoji,
-                    fontSize = 36.sp,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = item.word,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = item.handshape,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
-                    textAlign = TextAlign.Center,
-                    maxLines = 2
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(4.dp)
                 )
             }
-
-            // Play icon indicator
-            Icon(
-                imageVector = Icons.Default.PlayCircle,
-                contentDescription = "Watch tutorial",
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(10.dp)
-                    .size(22.dp)
-            )
         }
+
+        // Handshape label below the thumbnail
+        Text(
+            text = item.handshape,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.outline,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            maxLines = 1
+        )
     }
 }
 
@@ -204,7 +244,7 @@ private fun TutorialDetailBottomSheet(
                 .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
         ) {
-            // Header
+            // Header row
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -227,8 +267,7 @@ private fun TutorialDetailBottomSheet(
                 }
                 IconButton(
                     onClick = {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(watchUrl))
-                        context.startActivity(intent)
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(watchUrl)))
                     }
                 ) {
                     Icon(
@@ -242,7 +281,7 @@ private fun TutorialDetailBottomSheet(
             HorizontalDivider(modifier = Modifier.padding(horizontal = 24.dp))
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Embedded YouTube Video via WebView
+            // Embedded YouTube video player
             YoutubeEmbedPlayer(
                 embedUrl = embedUrl,
                 modifier = Modifier
@@ -254,7 +293,7 @@ private fun TutorialDetailBottomSheet(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // How-to description
+            // How-to description card
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -279,24 +318,19 @@ private fun TutorialDetailBottomSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Open in YouTube button
             OutlinedButton(
                 onClick = {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(watchUrl))
-                    context.startActivity(intent)
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(watchUrl)))
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Icon(
-                    Icons.Default.OpenInBrowser,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
+                Icon(Icons.Default.OpenInBrowser, null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Open Full Video in YouTube")
             }
@@ -307,8 +341,8 @@ private fun TutorialDetailBottomSheet(
 }
 
 /**
- * A composable that wraps an Android [WebView] to play a YouTube embed URL.
- * JavaScript and media playback are enabled — required for YouTube embeds.
+ * Renders a YouTube embed URL inside a [WebView].
+ * JavaScript and inline media playback are enabled — required for YouTube embeds.
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -332,19 +366,13 @@ private fun YoutubeEmbedPlayer(
                     override fun shouldOverrideUrlLoading(
                         view: WebView,
                         request: WebResourceRequest
-                    ): Boolean {
-                        // Keep all navigation inside the WebView
-                        return false
-                    }
+                    ): Boolean = false // Keep navigation inside WebView
                 }
                 loadUrl(embedUrl)
             }
         },
         update = { webView ->
-            // Reload if the URL changes (user tapped a different word)
-            if (webView.url != embedUrl) {
-                webView.loadUrl(embedUrl)
-            }
+            if (webView.url != embedUrl) webView.loadUrl(embedUrl)
         },
         modifier = modifier
     )

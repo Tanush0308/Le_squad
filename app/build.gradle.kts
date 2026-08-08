@@ -89,6 +89,8 @@ dependencies {
     implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
     implementation(libs.mlkit.translate)
     implementation(libs.mediapipe.genai)
+    // Coil: image loading for YouTube thumbnails in TutorialsScreen
+    implementation("io.coil-kt:coil-compose:2.6.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
