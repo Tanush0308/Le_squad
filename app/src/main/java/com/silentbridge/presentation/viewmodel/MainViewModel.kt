@@ -23,6 +23,7 @@ import com.silentbridge.domain.usecase.ObserveConnectionStateUseCase
 import com.silentbridge.domain.usecase.ObserveSensorDataUseCase
 import com.silentbridge.domain.usecase.SpeakSentenceUseCase
 import com.silentbridge.domain.usecase.TranslateSentenceUseCase
+import com.silentbridge.gesture.CaptureMode
 import com.silentbridge.gesture.GestureEngine
 import com.silentbridge.gesture.InferenceState
 import com.silentbridge.domain.repository.LanguageRepository
@@ -60,7 +61,10 @@ data class MainUiState(
     // Language is now typed — SupportedLanguage instead of a raw string code
     val selectedLanguage: SupportedLanguage = SupportedLanguage.English,
     val ttsStatus: TtsStatus = TtsStatus.Initializing,
-    val isDownloadingModel: Boolean = false
+    val isDownloadingModel: Boolean = false,
+    val captureMode: CaptureMode = CaptureMode.MANUAL,
+    // In AUTO mode: number of gestures accepted in this session
+    val autoAcceptedCount: Int = 0
 )
 
 class MainViewModel(
@@ -108,6 +112,52 @@ class MainViewModel(
         observeWordBuffer()
         refreshDevices()
         updateFeedbackCount()
+        setupAutoModeCallback()
+    }
+
+    /**
+     * Wire up the GestureEngine auto-loop callback.
+     * In AUTO mode, gestures with confidence >= threshold are silently accepted;
+     * those below are silently discarded.
+     */
+    private fun setupAutoModeCallback() {
+        gestureEngine.onAutoGestureResult = { result ->
+            if (result.confidence >= CaptureMode.AUTO_CONFIDENCE_THRESHOLD) {
+                addWordToBuffer(result.gestureName)
+                _uiState.update { it.copy(autoAcceptedCount = it.autoAcceptedCount + 1) }
+                true
+            } else {
+                Log.d("MainViewModel", "Auto mode: discarded '${result.gestureName}' confidence=${result.confidence}")
+                false
+            }
+        }
+    }
+
+    /** Switch between AUTO and MANUAL capture modes. Stops any active session first. */
+    fun setCaptureMode(mode: CaptureMode) {
+        gestureEngine.stopSession() // Resets engine safely
+        _uiState.update { it.copy(captureMode = mode, autoAcceptedCount = 0) }
+        prefs.edit().putString("capture_mode", mode.name).apply()
+    }
+
+    /**
+     * Starts gesture capture in whichever mode is currently selected.
+     * In AUTO: starts the continuous loop.
+     * In MANUAL: starts a single capture session.
+     */
+    fun startGestureCapture() {
+        _uiState.update { it.copy(feedbackSubmitted = false, showCorrectionSelector = false) }
+        if (_uiState.value.captureMode == CaptureMode.AUTO) {
+            _uiState.update { it.copy(autoAcceptedCount = 0) }
+            gestureEngine.startAutoLoop()
+        } else {
+            gestureEngine.startSession()
+        }
+    }
+
+    /** Stop the auto-capture loop (only relevant in AUTO mode). */
+    fun stopAutoCapture() {
+        gestureEngine.stopAutoLoop()
     }
 
     private fun observeSelectedLanguage() {
@@ -210,6 +260,7 @@ class MainViewModel(
         _uiState.update { it.copy(feedbackSubmitted = false, showCorrectionSelector = false) }
         gestureEngine.startSession()
     }
+
 
     fun stopGestureSession() {
         gestureEngine.stopSession()
