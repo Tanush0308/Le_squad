@@ -32,6 +32,7 @@ import com.silentbridge.presentation.screens.HomeScreen
 import com.silentbridge.presentation.screens.StatsScreen
 import com.silentbridge.presentation.screens.ManageWordsScreen
 import com.silentbridge.presentation.screens.VoiceSettingsScreen
+import com.silentbridge.presentation.screens.TutorialsScreen
 import com.silentbridge.presentation.viewmodel.MainViewModel
 import com.silentbridge.presentation.viewmodel.SettingsViewModel
 import com.silentbridge.presentation.viewmodel.SettingsViewModelFactory
@@ -152,9 +153,11 @@ fun SilentBridgeApp(viewModel: MainViewModel) {
                 onNavigateToDiagnostics = { navController.navigate(Screen.Diagnostics.route) },
                 onNavigateToStats = { navController.navigate(Screen.Stats.route) },
                 onNavigateToManageWords = { navController.navigate(Screen.ManageWords.route) },
-                onNavigateToVoiceSettings = { navController.navigate(Screen.VoiceSettings.route) }
+                onNavigateToVoiceSettings = { navController.navigate(Screen.VoiceSettings.route) },
+                onNavigateToTutorials = { navController.navigate(Screen.Tutorials.route) }
             )
         }
+
         composable(Screen.Devices.route) {
             DeviceScreen(
                 viewModel = viewModel,
@@ -192,6 +195,11 @@ fun SilentBridgeApp(viewModel: MainViewModel) {
             )
             VoiceSettingsScreen(
                 viewModel = settingsViewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.Tutorials.route) {
+            TutorialsScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

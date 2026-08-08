@@ -36,7 +36,8 @@ fun HomeScreen(
     onNavigateToDiagnostics: () -> Unit,
     onNavigateToStats: () -> Unit,
     onNavigateToManageWords: () -> Unit,
-    onNavigateToVoiceSettings: () -> Unit
+    onNavigateToVoiceSettings: () -> Unit,
+    onNavigateToTutorials: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showMenu by remember { mutableStateOf(false) }
@@ -88,6 +89,10 @@ fun HomeScreen(
                         DropdownMenuItem(text = { Text("Export Dataset (${uiState.feedbackCount})") }, onClick = { showMenu = false; viewModel.exportDataset() })
                         DropdownMenuItem(text = { Text("Manage Words") }, onClick = { showMenu = false; onNavigateToManageWords() })
                         DropdownMenuItem(text = { Text("Voice & Language") }, onClick = { showMenu = false; onNavigateToVoiceSettings() })
+                        DropdownMenuItem(
+                            text = { Text("Learn Signs 🤟") },
+                            onClick = { showMenu = false; onNavigateToTutorials() }
+                        )
                     }
                 }
             )
