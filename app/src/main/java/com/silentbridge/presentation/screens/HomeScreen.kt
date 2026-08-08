@@ -1,21 +1,35 @@
 package com.silentbridge.presentation.screens
 
+import androidx.compose.animation.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.BluetoothConnected
+import androidx.compose.material.icons.filled.BluetoothDisabled
+import androidx.compose.material.icons.filled.BluetoothSearching
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.silentbridge.domain.language.SupportedLanguage
@@ -42,14 +56,14 @@ fun HomeScreen(
     if (showLanguageDialog) {
         AlertDialog(
             onDismissRequest = { showLanguageDialog = false },
-            title = { Text("Select Output Language") },
+            title = { Text("Output Language") },
             text = {
                 Column {
                     languages.forEach { (code, name) ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 8.dp),
+                                .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
@@ -70,24 +84,26 @@ fun HomeScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showLanguageDialog = false }) { Text("Cancel") }
-            }
+            },
+            shape = RoundedCornerShape(16.dp)
         )
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("SilentBridge") },
+                title = { Text("SilentBridge", fontWeight = FontWeight.SemiBold) },
                 actions = {
                     IconButton(onClick = { showLanguageDialog = true }) {
-                        Icon(Icons.Default.Translate, contentDescription = "Language")
+                        Icon(Icons.Default.Translate, contentDescription = "Language", tint = MaterialTheme.colorScheme.primary)
                     }
                     IconButton(onClick = { showMenu = !showMenu }) {
                         Icon(Icons.Default.MoreVert, contentDescription = "More")
                     }
                     DropdownMenu(
                         expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
+                        onDismissRequest = { showMenu = false },
+                        modifier = Modifier.background(MaterialTheme.colorScheme.surface, RoundedCornerShape(8.dp))
                     ) {
                         DropdownMenuItem(
                             text = { Text("Prediction Stats") },
@@ -125,144 +141,257 @@ fun HomeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
                 .padding(padding)
-                .padding(16.dp),
+                .padding(horizontal = 24.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Connection Status
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val color = when (uiState.connectionState) {
-                    ConnectionState.CONNECTED -> Color.Green
-                    ConnectionState.CONNECTING -> Color.Yellow
-                    ConnectionState.DISCONNECTED -> Color.Red
-                    ConnectionState.ERROR -> Color.Red
-                    ConnectionState.SEARCHING -> Color.Blue
+            // Top Status Bar (Minimalistic)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val (icon, color, text) = when (uiState.connectionState) {
+                        ConnectionState.CONNECTED -> Triple(Icons.Default.BluetoothConnected, Color(0xFF4CAF50), "Connected")
+                        ConnectionState.CONNECTING -> Triple(Icons.Default.BluetoothSearching, Color(0xFFFFC107), "Connecting")
+                        ConnectionState.DISCONNECTED -> Triple(Icons.Default.BluetoothDisabled, Color.Gray, "Disconnected")
+                        ConnectionState.ERROR -> Triple(Icons.Default.BluetoothDisabled, Color(0xFFF44336), "Error")
+                        ConnectionState.SEARCHING -> Triple(Icons.Default.BluetoothSearching, Color(0xFF2196F3), "Searching")
+                    }
+                    Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Surface(modifier = Modifier.size(10.dp), shape = androidx.compose.foundation.shape.CircleShape, color = color) {}
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = "Glove: ${uiState.connectionState.name}", style = MaterialTheme.typography.labelMedium)
+
+                if (uiState.connectionState != ConnectionState.CONNECTED) {
+                    TextButton(onClick = onNavigateToDevices, contentPadding = PaddingValues(0.dp)) {
+                        Text("Connect", style = MaterialTheme.typography.labelLarge)
+                    }
+                } else {
+                    val statusText = when(uiState.inferenceState) {
+                        InferenceState.READY -> "Ready"
+                        InferenceState.CALIBRATING -> "Calibrating..."
+                        InferenceState.RECORDING -> "Recording"
+                        InferenceState.PREPROCESSING, InferenceState.MODEL_INFERENCE -> "Thinking..."
+                        else -> ""
+                    }
+                    Text(statusText, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                }
             }
 
             if (uiState.isDownloadingModel) {
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp))
-                Text("Downloading language pack...", style = MaterialTheme.typography.labelSmall)
+                Spacer(modifier = Modifier.height(16.dp))
+                LinearProgressIndicator(modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(4.dp)))
+                Text("Downloading language models...", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            if (uiState.connectionState != ConnectionState.CONNECTED) {
-                Button(onClick = onNavigateToDevices, modifier = Modifier.fillMaxWidth()) {
-                    Text("Connect Glove")
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Word Buffer
-            if (uiState.wordBuffer.isNotEmpty()) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    itemsIndexed(uiState.wordBuffer) { index, word ->
-                        AssistChip(
-                            onClick = { viewModel.removeWordFromBuffer(index) },
-                            label = { Text(word) },
-                            trailingIcon = { Icon(Icons.Default.Close, null, Modifier.size(14.dp)) }
-                        )
-                    }
-                }
-            }
-
-            // Gesture Recognition Card
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            // Main Gesture Area
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .clip(RoundedCornerShape(32.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .shadow(elevation = 2.dp, shape = RoundedCornerShape(32.dp)),
+                contentAlignment = Alignment.Center
             ) {
-                Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = "Gesture: ${uiState.inferenceState.name}", style = MaterialTheme.typography.labelSmall)
-                    
-                    if (uiState.gestureResult != null) {
-                        Text(text = uiState.gestureResult!!.gestureName, style = MaterialTheme.typography.headlineLarge, color = if (uiState.isWrongFlash) Color.Red else Color.Unspecified)
+                if (uiState.gestureResult != null) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = uiState.gestureResult!!.gestureName,
+                            style = MaterialTheme.typography.displayMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (uiState.isWrongFlash) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                        )
                         
+                        // Smaller feedback controls right under the word
                         if (uiState.showFeedbackButtons && !uiState.showCorrectionSelector) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(top = 16.dp)) {
-                                Button(onClick = { viewModel.onFeedbackYes() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF40a02b))) { Text("YES") }
-                                Button(onClick = { viewModel.onFeedbackNo() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFe64553))) { Text("NO") }
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.padding(top = 12.dp)
+                            ) {
+                                FilledIconButton(
+                                    onClick = { viewModel.onFeedbackYes() },
+                                    colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color(0xFF4CAF50).copy(alpha = 0.2f), contentColor = Color(0xFF4CAF50))
+                                ) {
+                                    Icon(Icons.Default.Check, contentDescription = "Correct")
+                                }
+                                FilledIconButton(
+                                    onClick = { viewModel.onFeedbackNo() },
+                                    colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer)
+                                ) {
+                                    Icon(Icons.Default.Close, contentDescription = "Incorrect")
+                                }
                             }
                         }
-                    } else {
-                        val statusText = when(uiState.inferenceState) {
-                            InferenceState.READY -> "Ready - Press START to capture"
-                            InferenceState.CALIBRATING -> "Calibrating (Keep Still)..."
-                            InferenceState.RECORDING -> "Recording Gesture..."
-                            InferenceState.PREPROCESSING, InferenceState.MODEL_INFERENCE -> "Processing AI..."
-                            InferenceState.DISCONNECTED -> "Connect Glove first"
-                            else -> "Waiting..."
-                        }
-                        Text(
-                            text = statusText,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = Color.Gray
-                        )
                     }
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Bluetooth, 
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp),
+                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                    )
                 }
             }
 
-            // Correction Selector
-            if (uiState.showCorrectionSelector) {
-                LazyVerticalGrid(columns = GridCells.Fixed(3), modifier = Modifier.height(150.dp)) {
+            // Correction Selector (Hidden by default, shown when user clicks incorrect)
+            AnimatedVisibility(visible = uiState.showCorrectionSelector) {
+                LazyVerticalGrid(columns = GridCells.Fixed(3), modifier = Modifier
+                    .fillMaxWidth()
+                    .height(120.dp)
+                    .padding(vertical = 12.dp)) {
                     items(uiState.modelLabels + uiState.customLabels) { label ->
-                        FilterChip(selected = false, onClick = { viewModel.submitCorrectedLabel(label) }, label = { Text(label, fontSize = 10.sp) })
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            modifier = Modifier
+                                .padding(4.dp)
+                                .clip(RoundedCornerShape(16.dp)),
+                            onClick = { viewModel.submitCorrectedLabel(label) }
+                        ) {
+                            Text(label, fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(8.dp))
+                        }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // Sentence Section
-            if (uiState.formedSentence != null) {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("English:", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
-                        Text(text = uiState.formedSentence!!, style = MaterialTheme.typography.bodyLarge)
+            // Word Buffer Display
+            AnimatedVisibility(visible = uiState.wordBuffer.isNotEmpty()) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text("Current Sentence", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        itemsIndexed(uiState.wordBuffer) { index, word ->
+                            InputChip(
+                                selected = false,
+                                onClick = { viewModel.removeWordFromBuffer(index) },
+                                label = { Text(word, fontWeight = FontWeight.Medium) },
+                                trailingIcon = { Icon(Icons.Default.Close, null, Modifier.size(16.dp)) },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = InputChipDefaults.inputChipColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Final Output / Generation Area
+            AnimatedVisibility(visible = uiState.formedSentence != null) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f))
+                ) {
+                    Column(Modifier.padding(20.dp)) {
+                        Text(
+                            text = uiState.formedSentence ?: "",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
                         
                         if (uiState.translatedSentence != null && uiState.selectedLanguage != SupportedLanguage.English) {
-                            HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                            Text("Translation:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                            Text(text = uiState.translatedSentence!!, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                text = uiState.translatedSentence!!,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         }
 
-                        Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(top = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(onClick = { viewModel.clearSentence(); viewModel.clearBuffer() }) {
+                                Text("Clear All", color = MaterialTheme.colorScheme.error)
+                            }
+                            FilledTonalButton(
                                 onClick = {
-                                    // Speak translated sentence if available, otherwise speak English
                                     val toSpeak = uiState.translatedSentence ?: uiState.formedSentence!!
                                     viewModel.speakSentence(toSpeak)
-                                },
-                                modifier = Modifier.weight(1f)
+                                }
                             ) {
-                                Text("Speak")
-                            }
-                            OutlinedButton(onClick = { viewModel.clearSentence(); viewModel.clearBuffer() }) {
-                                Text("Clear")
+                                Icon(Icons.Default.PlayArrow, contentDescription = "Speak", modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Speak Again")
                             }
                         }
                     }
                 }
             }
 
-            // Controls
-            Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = { viewModel.startGestureSession() },
-                    enabled = uiState.connectionState == ConnectionState.CONNECTED && uiState.inferenceState == InferenceState.READY,
-                    modifier = Modifier.weight(1f)
-                ) { Text("START") }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Primary Actions (Start / Done)
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // START Capture Button
+                if (uiState.connectionState == ConnectionState.CONNECTED && uiState.inferenceState == InferenceState.READY) {
+                    OutlinedButton(
+                        onClick = { viewModel.startGestureSession() },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text("Capture Sign", fontSize = 16.sp)
+                    }
+                } else if (uiState.inferenceState != InferenceState.READY && uiState.inferenceState != InferenceState.DISCONNECTED) {
+                    Button(
+                        onClick = { viewModel.stopGestureSession() },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("Stop", fontSize = 16.sp)
+                    }
+                }
                 
-                if (viewModel.getTriggerModePublic() == "manual" && uiState.wordBuffer.isNotEmpty()) {
-                    Button(onClick = { viewModel.triggerSentenceFormation() }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)) {
-                        Text("DONE")
+                // DONE / Translate Button
+                if (uiState.wordBuffer.isNotEmpty() && uiState.formedSentence == null) {
+                    Button(
+                        onClick = { viewModel.triggerSentenceFormation() },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Icon(Icons.Rounded.CheckCircle, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(if (uiState.isFormingSentence) "Translating..." else "Done", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
         }
     }
 }
+
